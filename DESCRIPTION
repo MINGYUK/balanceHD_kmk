@@ -1,4 +1,4 @@
-Package: balanceHD
+Package: balanceHDkmk
 Title: Approximately balanced estimation of average treatment effects in high dimensions.
 Version: 1.0
 Author: Susan Athey, Guido Imbens, and Stefan Wager
