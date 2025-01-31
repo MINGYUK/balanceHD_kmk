@@ -1,6 +1,7 @@
 rm(list = ls())
 
-library(balanceHD)
+library(balanceHDkmk)
+library(ebalTorchkmk)
 library(mvtnorm)
 
 # Read inputs to simulation
@@ -20,7 +21,7 @@ experiment = as.numeric(args[9])
 
 tau = 1
 
-source("run.comparison.R")
+source("./run.comparison.R")
 
 # Intialize beta
 
@@ -55,8 +56,9 @@ if(prop.setup == 1) {
 		CLUST = rbinom(n, 1, 0.5)
 		W = rbinom(n, 1, eps + (1 - 2*eps) * CLUST)
 		X = matrix(rnorm(n * p), n, p) + outer(CLUST, delta.clust)
-		Y = X %*% beta.main + rnorm(n) + tau * W
-		list(X=X, Y=Y, W=W, catt=tau)
+		Y = X %*% beta.main + tau * W
+		Y_prime = X %*% beta.main
+		list(X=X, Y=Y, W=W, catt=tau, Y_prime=Y_prime)
 	}
 
 } else if(prop.setup == 2) {
@@ -68,8 +70,9 @@ if(prop.setup == 1) {
 	gen.data = function() {
 		X = 10 * rmvnorm(n, sigma = outer(1:p, 1:p, FUN=function(x, y) rho^(abs(x-y))), method = "chol")
 		W = rbinom(n, 1, prob = 1/(1 + exp(-beta.prop * X)))
-		Y = X %*% beta.main + rnorm(n, 0, 1) + tau * W
-		list(X=X, Y=Y, W=W, catt=tau)
+		Y = X %*% beta.main + tau * W
+		Y_prime = X %*% beta.main
+		list(X=X, Y=Y, W=W, catt=tau, Y_prime=Y_prime)
 	}
 
 } else if(prop.setup == 3) {
@@ -84,8 +87,9 @@ if(prop.setup == 1) {
 		cluster = sample.int(nclust, n, replace = TRUE)
 		X = cluster.center[cluster,] + matrix(rnorm(n * p), n, p)
 		W = rbinom(n, 1, clust.ptreat[cluster])
-		Y = X %*% beta.main + rnorm(n, 0, 1) + tau.clust[cluster] * W
-		list(X=X, Y=Y, W=W, catt=mean(tau.clust[cluster[W==1]]))
+		Y = X %*% beta.main + tau.clust[cluster] * W
+		Y_prime = X %*% beta.main
+		list(X=X, Y=Y, W=W, catt=mean(tau.clust[cluster[W==1]]), Y_prime=Y_prime)
 	}
 
 } else if(prop.setup == 4) {
@@ -100,7 +104,7 @@ if(prop.setup == 1) {
 		ptreat = 1 - exp(-tauX)
 		W = rbinom(n, 1, prob = ptreat)
 		mean(tauX[W == 1])
-		Y = rnorm(n, 0, 1) + tauX * (2 * W - 1) / 2 + rowSums(X[,1:10])
+		Y = tauX * (2 * W - 1) / 2 + rowSums(X[,1:10])
 		list(X=X, Y=Y, W=W, catt=mean(tauX[W==1]))
 	}
         
@@ -126,8 +130,9 @@ if(prop.setup == 1) {
 		X = rmvnorm(n, sigma = Sigma, method = "chol")
 		theta = X %*% beta.prop + rnorm(n)
 		W = rbinom(n, 1, 1/(1 + exp(theta)))
-		Y = X %*% beta.main + W * tau + rnorm(n)
-		list(X=X, Y=Y, W=W, catt=tau)
+		Y = X %*% beta.main + W * tau
+		Y_prime = X %*% beta.main
+		list(X=X, Y=Y, W=W, catt=tau,Y_prime=Y_prime)
 	}
         
 }

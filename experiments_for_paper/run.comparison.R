@@ -1,37 +1,64 @@
-run.comparison = function(XYW) {
+library(balanceHDkmk)
+library(ebalTorchkmk)
+library(Matrix)
+maxit = 200
+lr = 0.1
+
+run.comparison = function(XYW, ebal_tol, sbw_tol, resHD_zeta) {
 
 	X = XYW$X
 	Y = XYW$Y
 	W = XYW$W
 
 	# Run residual balancing
-	tau.rb = residualBalance.ate(X, Y, W, target.pop = 1, fit.method = "elnet", alpha = 0.9, zeta = 0.5)
-	tau.rb.plain = residualBalance.ate(X, Y, W, target.pop = 1, fit.method = "none", zeta = 0.5)
+	print('running residHD')
+	tau.rb = residualBalance.ate(X, Y, W, target.pop = c(0, 1), fit.method = "elnet", alpha = 0.9, zeta = resHD_zeta)
+	# tau.rb.plain = residualBalance.ate(X, Y, W, target.pop = c(0, 1), fit.method = "none", zeta = resHD_zeta)
 
-	# Run inverse-propensity weighted methods
-	tau.ipw.elnet = ipw.ate(X, Y, W, target.pop = 1, fit.method = "none", prop.method = "elnet", alpha.prop = 0.5)
-	tau.aipw = ipw.ate(X, Y, W, target.pop = 1, prop.weighted.fit = FALSE, targeting.method = "AIPW",
-	                   fit.method = "elnet", prop.method = "elnet", alpha.fit = 0.9, alpha.prop = 0.5)
-	tau.ipw.weighted = ipw.ate(X, Y, W, target.pop = 1, prop.weighted.fit = TRUE, targeting.method = "AIPW",
-	                           fit.method = "elnet", prop.method = "elnet", alpha.fit = 0.9, alpha.prop = 0.5)
-	tau.tmle = ipw.ate(X, Y, W, prop.weighted.fit = FALSE, targeting.method = "TMLE",
-	                   target.pop = 1, fit.method = "elnet", prop.method = "elnet", alpha.fit = 0.9, alpha.prop = 0.5)
+	################### Custom implementation by manjimin
+	# Run EBAL
+	print('running ebal')
+	tau.ebal = ebal.ate(Treatment = W,
+	                    X = X,
+	                    Y=Y,
+	                    method='AutoDiff',
+	                    constraint.tolerance = ebal_tol,
+	                    maxit=maxit,
+	                    lr=lr)
 
-	# Run other baselines
-	tau.naive = naive.ate(X, Y, W)
-	tau.elnet = elnet.ate(X, Y, W, target.pop = 1, alpha = 0.9)
-	tau.twostep = twostep.lasso.ate(X, Y, W, target.pop = 1)
+	print('running sbw')
+	# Run SBW
+	tau.sbw = sbw.ate(W,
+                   X,
+                   Y,
+                   tolerance = sbw_tol,
+                   algorithm = FALSE,
+                   std = 'group',
+                   solver = 'osqp')
+	
+	print('running dynbal')
+	
+	# Run dynbal
+	tau.dynbal = dynbal.ate(Treatment = W,
+	                    X = X,
+	                    Y=Y,
+	                    method='AutoDiff',
+	                    constraint.tolerance = 1,
+	                    maxit=maxit,
+	                    lr=lr,
+	                    kappa = ncol(X)/20
+	                    )
 
-	results = c(Naive=tau.naive,
-		Elnet=tau.elnet,
-		Twostep = tau.twostep,
-		ResidBalance=tau.rb,
-		ResidBalancePlain=tau.rb.plain,
-		IPW.Elnet = tau.ipw.elnet,
-		IPW.Residual = tau.aipw,
-		IPW.Weighted = tau.ipw.weighted,
-		TMLE = tau.tmle)
-	results
+	#####################################################
+
+	results = c(
+		ARB=tau.rb,
+		# ResidBalancePlain=tau.rb.plain,
+		EBAL = tau.ebal,
+		SBW = tau.sbw,
+		DYNBAL = tau.dynbal
+		)
+	return(results)
 
 }
 
@@ -43,5 +70,5 @@ coverage.test = function(XYW) {
 
 	# Run residual balancing
 	tau.rb = residualBalance.ate(X, Y, W, target.pop = 1, fit.method = "elnet", alpha = 0.9, zeta = 0.5, estimate.se = TRUE)
-	tau.rb
+	return(tau.rb)
 }
